@@ -1,3 +1,4 @@
+// @ts-nocheck
 "use client"
 
 import { useState } from 'react'
@@ -18,20 +19,33 @@ export default function DistributedDatabaseSimulator() {
     release_month: '',
     release_day: ''
   })
+  const [concurrencyInput, setConcurrencyInput] = useState({
+    gameId: '',
+    price: ''
+  })
 
-  const handleInputChange = (e: any) => {
+  const handleInputChange = (e) => {
     const { name, value } = e.target
     setGameData(prev => ({ ...prev, [name]: value }))
   }
 
-  const simulateConcurrency = async (caseNumber: number) => {
+  const handleConcurrencyInputChange = (e) => {
+    const { name, value } = e.target
+    setConcurrencyInput(prev => ({ ...prev, [name]: value }))
+  }
+
+  const simulateConcurrency = async (caseNumber) => {
     try {
       const response = await fetch('/api/simulate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ case: caseNumber }),
+        body: JSON.stringify({
+          case: caseNumber,
+          gameId: parseInt(concurrencyInput.gameId),
+          price: parseFloat(concurrencyInput.price)
+        }),
       })
 
       if (!response.ok) {
@@ -52,7 +66,7 @@ export default function DistributedDatabaseSimulator() {
     }
   }
 
-  const simulateCrash = async (caseNumber: number) => {
+  const simulateCrash = async (caseNumber) => {
     try {
       const response = await fetch('/api/failure-recovery', {
         method: 'POST',
@@ -80,7 +94,6 @@ export default function DistributedDatabaseSimulator() {
     }
   }
 
-
   return (
       <div className="container mx-auto p-4">
         <h1 className="text-2xl font-bold mb-4">Distributed Database Simulator</h1>
@@ -91,6 +104,32 @@ export default function DistributedDatabaseSimulator() {
           </TabsList>
           <TabsContent value="concurrency">
             <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="gameId">Game ID</Label>
+                  <Input
+                      id="gameId"
+                      name="gameId"
+                      type="number"
+                      value={concurrencyInput.gameId}
+                      onChange={handleConcurrencyInputChange}
+                      required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="price">Price</Label>
+                  <Input
+                      id="price"
+                      name="price"
+                      type="number"
+                      step="0.01"
+                      value={concurrencyInput.price}
+                      onChange={handleConcurrencyInputChange}
+                      required
+                  />
+                </div>
+              </div>
+              <hr/>
               <Button onClick={() => simulateConcurrency(1)}>Simulate Case 1</Button>
               <br/>
               <Button onClick={() => simulateConcurrency(2)}>Simulate Case 2</Button>
@@ -99,7 +138,7 @@ export default function DistributedDatabaseSimulator() {
               <br/>
               {Object.entries(concurrencyLogs).map(([key, logs]) => (
                   <div key={key}>
-                    <h3 className="font-bold">{key}</h3> {/* @ts-ignore*/}
+                    <h3 className="font-bold">{key}</h3>
                     <pre className="bg-gray-100 p-2 rounded">{logs.join('\n')}</pre>
                   </div>
               ))}
@@ -143,6 +182,7 @@ export default function DistributedDatabaseSimulator() {
                          onChange={handleInputChange}/>
                 </div>
               </div>
+              <hr/>
               <Button onClick={() => simulateCrash(1)}>Simulate Case 1</Button>
               <br/>
               <Button onClick={() => simulateCrash(2)}>Simulate Case 2</Button>
@@ -153,7 +193,7 @@ export default function DistributedDatabaseSimulator() {
               <br/>
               {Object.entries(crashLogs).map(([key, logs]) => (
                   <div key={key}>
-                    <h3 className="font-bold">{key}</h3> {/* @ts-ignore*/}
+                    <h3 className="font-bold">{key}</h3>
                     <pre className="bg-gray-100 p-2 rounded">{logs.join('\n')}</pre>
                   </div>
               ))}

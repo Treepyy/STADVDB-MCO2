@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { NextApiRequest, NextApiResponse } from 'next'
 import mysql from 'mysql2/promise'
 
@@ -53,9 +51,22 @@ function getRelevantNodes(releaseYear: number): string[] {
     return nodes
 }
 
-async function simulateCase1() {
+async function getGameReleaseYear(gameId: number): Promise<number> {
+    const conn = await getDbConnection(dbConfigs.central)
+    try {
+        const [result] = await conn.execute('SELECT release_year FROM games WHERE game_id = ?', [gameId])
+        if (Array.isArray(result) && result.length > 0) {
+            return (result[0] as any).release_year
+        }
+        throw new Error(`Game with ID ${gameId} not found`)
+    } finally {
+        await conn.end()
+    }
+}
+
+async function simulateCase1(gameId: number, price: number) {
     const logs: string[] = []
-    const releaseYear = 2008 // Example release year for Case 1
+    const releaseYear = await getGameReleaseYear(gameId)
     const relevantNodes = getRelevantNodes(releaseYear)
 
     async function transaction1() {
@@ -63,7 +74,7 @@ async function simulateCase1() {
         logs.push(`Transaction 1 started on ${node}`)
         const conn = await getDbConnection(dbConfigs[node], 'READ COMMITTED')
         try {
-            const result = await executeQuery(conn, "SELECT * FROM games WHERE game_id = 1 AND release_year = ?", [releaseYear])
+            const result = await executeQuery(conn, "SELECT * FROM games WHERE game_id = ?", [gameId])
             logs.push(`Transaction 1 result on ${node}: ${JSON.stringify(result)}`)
         } finally {
             await conn.end()
@@ -75,7 +86,7 @@ async function simulateCase1() {
         logs.push("Transaction 2 started on central")
         const conn = await getDbConnection(dbConfigs.central, 'READ COMMITTED')
         try {
-            const result = await executeQuery(conn, "SELECT * FROM games WHERE game_id = 1")
+            const result = await executeQuery(conn, "SELECT * FROM games WHERE game_id = ?", [gameId])
             logs.push(`Transaction 2 result on central: ${JSON.stringify(result)}`)
         } finally {
             await conn.end()
@@ -87,9 +98,9 @@ async function simulateCase1() {
     return logs
 }
 
-async function simulateCase2() {
+async function simulateCase2(gameId: number, price: number) {
     const logs: string[] = []
-    const releaseYear = 2015 // Example release year for Case 2
+    const releaseYear = await getGameReleaseYear(gameId)
     const relevantNodes = getRelevantNodes(releaseYear)
 
     async function transaction1() {
@@ -97,7 +108,7 @@ async function simulateCase2() {
         logs.push(`Transaction 1 started on ${node}`)
         const conn = await getDbConnection(dbConfigs[node], 'READ COMMITTED')
         try {
-            const result = await executeQuery(conn, "SELECT * FROM games WHERE game_id = 1 AND release_year = ?", [releaseYear])
+            const result = await executeQuery(conn, "SELECT * FROM games WHERE game_id = ?", [gameId])
             logs.push(`Transaction 1 result on ${node}: ${JSON.stringify(result)}`)
         } finally {
             await conn.end()
@@ -106,24 +117,25 @@ async function simulateCase2() {
     }
 
     async function transaction2() {
-        logs.push("Transaction 2 started on central")
-        const conn = await getDbConnection(dbConfigs.central, 'READ COMMITTED')
+        const node = relevantNodes.includes('node1') ? 'node1' : 'node2'
+        logs.push(`Transaction 2 started on central and ${node}`)
+        const conn = await getDbConnection(dbConfigs[node], 'READ COMMITTED')
         try {
-            await executeQuery(conn, "UPDATE games SET price = price + 1 WHERE game_id = 1 AND release_year = ?", [releaseYear])
-            logs.push("Transaction 2 updated price on central")
+            await executeQuery(conn, "UPDATE games SET price = ? WHERE game_id = ?", [price, gameId])
+            logs.push(`Transaction 2 updated price to ${price} on central and ${node}`)
         } finally {
             await conn.end()
         }
-        logs.push("Transaction 2 completed on central")
+        logs.push(`Transaction 2 completed on central and ${node}`)
     }
 
     await Promise.all([transaction1(), transaction2()])
     return logs
 }
 
-async function simulateCase3() {
+async function simulateCase3(gameId: number, price: number) {
     const logs = []
-    const releaseYear = 2008 // Example release year for Case 3
+    const releaseYear = await getGameReleaseYear(gameId)
     const relevantNodes = getRelevantNodes(releaseYear)
 
     async function transaction1() {
@@ -131,7 +143,7 @@ async function simulateCase3() {
         logs.push(`Transaction 1 started on ${node}`)
         const conn = await getDbConnection(dbConfigs[node], 'SERIALIZABLE')
         try {
-            await executeQuery(conn, "UPDATE games SET price = price + 1 WHERE game_id = 1 AND release_year = ?", [releaseYear])
+            await executeQuery(conn, "UPDATE games SET price = ? WHERE game_id = ?", [price, gameId])
             logs.push(`Transaction 1 updated price on ${node}`)
         } finally {
             await conn.end()
@@ -143,7 +155,7 @@ async function simulateCase3() {
         logs.push("Transaction 2 started on central")
         const conn = await getDbConnection(dbConfigs.central, 'SERIALIZABLE')
         try {
-            await executeQuery(conn, "UPDATE games SET price = price + 1 WHERE game_id = 1 AND release_year = ?", [releaseYear])
+            await executeQuery(conn, "UPDATE games SET price = ? WHERE game_id = ?", [price, gameId])
             logs.push("Transaction 2 updated price on central")
         } finally {
             await conn.end()
@@ -159,7 +171,7 @@ async function simulateCase3() {
         // @ts-ignore
         const conn = await getDbConnection(dbConfigs[nodeName], 'READ COMMITTED')
         try {
-            const result = await executeQuery(conn, "SELECT price FROM games WHERE game_id = 1 AND release_year = ?", [releaseYear])
+            const result = await executeQuery(conn, "SELECT price FROM games WHERE game_id = ?", [gameId])
             finalStateLogs.push(`Result on ${nodeName}: ${JSON.stringify(result)} `)
         } finally {
             await conn.end()
@@ -172,19 +184,19 @@ async function simulateCase3() {
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (req.method === 'POST') {
-        const { case: caseNumber } = req.body
+        const { case: caseNumber, gameId, price } = req.body
 
         try {
             let logs
             switch (caseNumber) {
                 case 1:
-                    logs = await simulateCase1()
+                    logs = await simulateCase1(gameId, price)
                     break
                 case 2:
-                    logs = await simulateCase2()
+                    logs = await simulateCase2(gameId, price)
                     break
                 case 3:
-                    logs = await simulateCase3()
+                    logs = await simulateCase3(gameId, price)
                     break
                 default:
                     return res.status(400).json({ error: 'Invalid case number' })

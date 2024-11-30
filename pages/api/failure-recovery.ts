@@ -102,6 +102,7 @@ async function simulateNodeFailure(node: string) {
 async function simulateNodeRecovery(node: string, txId: string | null = null) {
     const maxRetries = 3
     const retryDelay = 2000
+    console.log(txId);
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
         try {
@@ -222,15 +223,16 @@ async function failRecover2(gameData: any) {
         const relevantNodes = getRelevantNodes(releaseYear)
 
         logs.push(`Starting transaction across nodes: ${relevantNodes.join(', ')}...`)
+        const node = relevantNodes.includes('node1') ? 'node1' : 'node2'
 
-        logs.push("Simulating node2 failure...")
-        logs.push(await simulateNodeFailure('node2'))
+        logs.push(`Simulating ${node} failure...`)
+        logs.push(await simulateNodeFailure(node))
 
         transactionLog.addPending(txId, relevantNodes, query, params)
         logs.push(`Transaction ${txId} added to pending log`)
 
-        logs.push(`Executing transaction on available nodes (${relevantNodes.filter(n => n !== 'node2').join(', ')})...`)
-        for (const node of relevantNodes.filter(n => n !== 'node2')) {
+        logs.push(`Executing transaction on available nodes (${relevantNodes.filter(n => n !== node).join(', ')})...`)
+        for (const node of relevantNodes.filter(n => n !== node)) {
             const success = await executeSafeQuery(node, query, params)
             if (success) {
                 transactionLog.markCompleted(txId, node)
@@ -240,8 +242,8 @@ async function failRecover2(gameData: any) {
             }
         }
 
-        logs.push("Attempting to recover node2...")
-        logs.push(await simulateNodeRecovery('node2', txId))
+        logs.push(`Attempting to recover ${node}...`)
+        logs.push(await simulateNodeRecovery(node, txId))
 
         logs.push("Verifying final state...")
         for (const node of relevantNodes) {
@@ -268,12 +270,13 @@ async function failRecover3(gameData: any) {
         const releaseYear = gameData.release_year
         const params = [maxGameId, gameData.name, releaseYear, gameData.req_age, gameData.price, gameData.mc_score, gameData.release_month, gameData.release_day]
         const relevantNodes = getRelevantNodes(releaseYear)
+        const node = relevantNodes.includes('node1') ? 'node1' : 'node2'
 
-        logs.push(`Starting transaction on node1...`)
+        logs.push(`Starting transaction on ${node}...`)
 
-        const success = await executeSafeQuery('node1', query, params)
+        const success = await executeSafeQuery(node, query, params)
         if (success) {
-            logs.push("Transaction completed successfully on node1")
+            logs.push(`Transaction completed successfully on ${node}`)
 
             logs.push("Simulating central node failure during replication...")
             logs.push(await simulateNodeFailure('central'))
@@ -292,7 +295,7 @@ async function failRecover3(gameData: any) {
                 await conn.end()
             }
         } else {
-            logs.push("Initial transaction failed on node1")
+            logs.push(`Initial transaction failed on ${node}`)
         }
     } catch (error) {
         // @ts-ignore
@@ -312,6 +315,7 @@ async function failRecover4(gameData: any) {
         const releaseYear = gameData.release_year
         const params = [maxGameId, gameData.name, releaseYear, gameData.req_age, gameData.price, gameData.mc_score, gameData.release_month, gameData.release_day]
         const relevantNodes = getRelevantNodes(releaseYear)
+        const node = relevantNodes.includes('node1') ? 'node1' : 'node2'
 
         logs.push("Starting transaction on central node...")
 
@@ -319,14 +323,14 @@ async function failRecover4(gameData: any) {
         if (success) {
             logs.push("Transaction completed successfully on central")
 
-            logs.push("Simulating node2 failure during replication...")
-            logs.push(await simulateNodeFailure('node2'))
+            logs.push(`Simulating ${node} failure during replication...`)
+            logs.push(await simulateNodeFailure(node))
 
-            transactionLog.addPending(txId, ['node2'], query, params)
-            logs.push(`Transaction ${txId} added to pending log for node2`)
+            transactionLog.addPending(txId, [node], query, params)
+            logs.push(`Transaction ${txId} added to pending log for ${node}`)
 
-            logs.push("Attempting to recover node2...")
-            logs.push(await simulateNodeRecovery('node2', txId))
+            logs.push(`Attempting to recover ${node}...`)
+            logs.push(await simulateNodeRecovery(node, txId))
 
             logs.push("Verifying final state...")
             for (const node of relevantNodes) {
