@@ -1,5 +1,4 @@
 'use client'
-// eslint-disable @typescript-eslint/no-explicit-any
 
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -20,52 +19,60 @@ export default function DistributedDatabaseSimulator() {
     case4: []
   })
 
-  // @ts-ignore
-  const simulateTransaction = (caseNumber, operation) => {
-    const nodes = ['Central Node', 'Node 2', 'Node 3']
-    const games = ['Half-Life', 'Portal', 'Team Fortress 2']
-    const game = games[Math.floor(Math.random() * games.length)]
+  const simulateTransaction = async (caseNumber: number) => {
+    try {
+      const response = await fetch('/api/simulate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ case: caseNumber }),
+      })
 
-    // @ts-ignore
-    const newLogs = []
-    nodes.forEach((node, index) => {
-      if (caseNumber === 1 || (caseNumber === 2 && index === 0) || caseNumber === 3) {
-        newLogs.push(`${node}: ${operation} on ${game}`)
+      if (!response.ok) {
+        throw new Error('Network response was not ok')
       }
-    })
 
-    setTransactionLogs(prev => ({
-      ...prev, // @ts-ignore
-      [`case${caseNumber}`]: [...prev[`case${caseNumber}`], ...newLogs]
-    }))
+      const data = await response.json()
+      setTransactionLogs(prev => ({
+        ...prev,
+        [`case${caseNumber}`]: data.logs
+      }))
+    } catch (error) {
+      console.error('Error:', error)
+      setTransactionLogs(prev => ({
+        ...prev,
+        [`case${caseNumber}`]: ['Error occurred during simulation']
+      }))
+    }
   }
 
-  // @ts-ignore
-  const simulateCrash = (caseNumber) => {
-    const scenarios = [
-      'Central Node unavailable, then recovers',
-      'Node 2 unavailable, then recovers',
-      'Failure writing to Central Node',
-      'Failure writing to Node 2'
-    ]
-    const scenario = scenarios[caseNumber - 1]
-    const newLog = `Simulating: ${scenario}`
+  const simulateCrash = async (caseNumber: number) => {
+    try {
+      const response = await fetch('/api/failure-recovery', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ case: caseNumber }),
+      })
 
-    setCrashLogs(prev => ({
-      ...prev,
-      // @ts-ignore
-      [`case${caseNumber}`]: [...prev[`case${caseNumber}`], newLog]
-    }))
+      if (!response.ok) {
+        throw new Error('Network response was not ok')
+      }
 
-    // Simulate recovery after 3 seconds
-    setTimeout(() => {
-      const recoveryLog = `Recovery complete for: ${scenario}`
+      const data = await response.json()
       setCrashLogs(prev => ({
         ...prev,
-        // @ts-ignore
-        [`case${caseNumber}`]: [...prev[`case${caseNumber}`], recoveryLog]
+        [`case${caseNumber}`]: data.logs
       }))
-    }, 3000)
+    } catch (error) {
+      console.error('Error:', error)
+      setCrashLogs(prev => ({
+        ...prev,
+        [`case${caseNumber}`]: ['Error occurred during simulation']
+      }))
+    }
   }
 
   return (
@@ -82,7 +89,7 @@ export default function DistributedDatabaseSimulator() {
                 <CardTitle>Case #1: Concurrent Read Operations</CardTitle>
               </CardHeader>
               <CardContent>
-                <Button onClick={() => simulateTransaction(1, 'READ')} className="mb-2">Simulate Read</Button>
+                <Button onClick={() => simulateTransaction(1)} className="mb-2">Simulate Case 1</Button>
                 <div className="bg-gray-100 p-2 rounded">
                   {transactionLogs.case1.map((log, index) => (
                       <p key={index}>{log}</p>
@@ -95,7 +102,7 @@ export default function DistributedDatabaseSimulator() {
                 <CardTitle>Case #2: One Write, Others Read</CardTitle>
               </CardHeader>
               <CardContent>
-                <Button onClick={() => simulateTransaction(2, 'WRITE')} className="mb-2">Simulate Write/Read</Button>
+                <Button onClick={() => simulateTransaction(2)} className="mb-2">Simulate Case 2</Button>
                 <div className="bg-gray-100 p-2 rounded">
                   {transactionLogs.case2.map((log, index) => (
                       <p key={index}>{log}</p>
@@ -108,7 +115,7 @@ export default function DistributedDatabaseSimulator() {
                 <CardTitle>Case #3: Concurrent Write Operations</CardTitle>
               </CardHeader>
               <CardContent>
-                <Button onClick={() => simulateTransaction(3, 'WRITE')} className="mb-2">Simulate Write</Button>
+                <Button onClick={() => simulateTransaction(3)} className="mb-2">Simulate Case 3</Button>
                 <div className="bg-gray-100 p-2 rounded">
                   {transactionLogs.case3.map((log, index) => (
                       <p key={index}>{log}</p>
