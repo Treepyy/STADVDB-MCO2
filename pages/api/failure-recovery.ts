@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 import { NextApiRequest, NextApiResponse } from 'next'
 import mysql from 'mysql2/promise'
 
@@ -65,7 +67,6 @@ async function getDbConnection(config: any) {
 }
 
 async function executeSafeQuery(node: string, query: string, params: any[]) {
-    // @ts-ignore
     const conn = await getDbConnection(dbConfigs[node])
     try {
         await conn.execute(query, params)
@@ -90,12 +91,10 @@ function getRelevantNodes(releaseYear: number): string[] {
 
 async function simulateNodeFailure(node: string) {
     try {
-        // @ts-ignore
         const conn = await getDbConnection(dbConfigs[node])
         await conn.end()
         return `Node ${node} simulated failure`
     } catch (error) {
-        // @ts-ignore
         return `Error simulating failure for ${node}: ${error.message}`
     }
 }
@@ -106,7 +105,6 @@ async function simulateNodeRecovery(node: string, txId: string | null = null) {
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
         try {
-            // @ts-ignore
             const conn = await getDbConnection(dbConfigs[node])
             if (conn) {
                 const recoveryResults = await recoverNode(node)
@@ -127,7 +125,6 @@ async function recoverNode(node: string) {
     const results = []
 
     for (const [txId, tx] of Object.entries(pendingTxs)) {
-        // @ts-ignore
         const success = await executeSafeQuery(node, tx.query, tx.params)
         if (success) {
             transactionLog.markCompleted(txId, node)
@@ -140,14 +137,25 @@ async function recoverNode(node: string) {
     return results
 }
 
-async function failRecover1() {
+async function getMaxGameId(node: string): Promise<number> {
+    const conn = await getDbConnection(dbConfigs[node])
+    try {
+        const [result] = await conn.execute('SELECT MAX(game_id) as maxId FROM games')
+        return (result as any)[0].maxId + 1
+    } finally {
+        await conn.end()
+    }
+}
+
+async function failRecover1(gameData: any) {
     const logs = []
     const txId = Date.now().toString()
 
     try {
-        const query = "INSERT INTO games (game_id, name, release_year) VALUES (?, ?, ?)"
-        const releaseYear = 2005
-        const params = [99999, "Test Game (2005)", releaseYear]
+        const maxGameId = await getMaxGameId('central')
+        const query = "INSERT INTO games (game_id, name, release_year, req_age, price, mc_score, release_month, release_day) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        const releaseYear = gameData.release_year
+        const params = [maxGameId, gameData.name, releaseYear, gameData.req_age, gameData.price, gameData.mc_score, gameData.release_month, gameData.release_day]
         const relevantNodes = getRelevantNodes(releaseYear)
 
         logs.push(`Starting transaction across nodes: ${relevantNodes.join(', ')}... with params ${params.join(', ')}`)
@@ -183,9 +191,8 @@ async function failRecover1() {
 
         logs.push("Verifying final state...")
         for (const node of relevantNodes) {
-            // @ts-ignore
             const conn = await getDbConnection(dbConfigs[node])
-            const [rows] = await conn.execute("SELECT * FROM games WHERE game_id = ?", [99999])
+            const [rows] = await conn.execute("SELECT * FROM games WHERE game_id = ?", [maxGameId])
             logs.push(`Data on ${node}: ${rows ? 'Present' : 'Not present'}`)
             if (!rows) {
                 const success = await executeSafeQuery(node, query, params)
@@ -203,14 +210,15 @@ async function failRecover1() {
     return logs
 }
 
-async function failRecover2() {
+async function failRecover2(gameData: any) {
     const logs = []
     const txId = Date.now().toString()
 
     try {
-        const query = "INSERT INTO games (game_id, name, release_year) VALUES (?, ?, ?)"
-        const releaseYear = 2015
-        const params = [99998, "Test Game (2015)", releaseYear]
+        const maxGameId = await getMaxGameId('central')
+        const query = "INSERT INTO games (game_id, name, release_year, req_age, price, mc_score, release_month, release_day) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        const releaseYear = gameData.release_year
+        const params = [maxGameId, gameData.name, releaseYear, gameData.req_age, gameData.price, gameData.mc_score, gameData.release_month, gameData.release_day]
         const relevantNodes = getRelevantNodes(releaseYear)
 
         logs.push(`Starting transaction across nodes: ${relevantNodes.join(', ')}...`)
@@ -219,7 +227,7 @@ async function failRecover2() {
         logs.push(await simulateNodeFailure('node2'))
 
         transactionLog.addPending(txId, relevantNodes, query, params)
-        logs.push(`Transaction ${query} with params ${params} added to pending log (${txId})`)
+        logs.push(`Transaction ${txId} added to pending log`)
 
         logs.push(`Executing transaction on available nodes (${relevantNodes.filter(n => n !== 'node2').join(', ')})...`)
         for (const node of relevantNodes.filter(n => n !== 'node2')) {
@@ -237,9 +245,8 @@ async function failRecover2() {
 
         logs.push("Verifying final state...")
         for (const node of relevantNodes) {
-            // @ts-ignore
             const conn = await getDbConnection(dbConfigs[node])
-            const [rows] = await conn.execute("SELECT * FROM games WHERE game_id = ?", [99998])
+            const [rows] = await conn.execute("SELECT * FROM games WHERE game_id = ?", [maxGameId])
             logs.push(`Data on ${node}: ${rows ? 'Present' : 'Not present'}`)
             await conn.end()
         }
@@ -251,14 +258,15 @@ async function failRecover2() {
     return logs
 }
 
-async function failRecover3() {
+async function failRecover3(gameData: any) {
     const logs = []
     const txId = Date.now().toString()
 
     try {
-        const query = "INSERT INTO games (game_id, name, release_year) VALUES (?, ?, ?)"
-        const releaseYear = 2008
-        const params = [99997, "Test Game (2008)", releaseYear]
+        const maxGameId = await getMaxGameId('central')
+        const query = "INSERT INTO games (game_id, name, release_year, req_age, price, mc_score, release_month, release_day) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        const releaseYear = gameData.release_year
+        const params = [maxGameId, gameData.name, releaseYear, gameData.req_age, gameData.price, gameData.mc_score, gameData.release_month, gameData.release_day]
         const relevantNodes = getRelevantNodes(releaseYear)
 
         logs.push(`Starting transaction on node1...`)
@@ -271,16 +279,15 @@ async function failRecover3() {
             logs.push(await simulateNodeFailure('central'))
 
             transactionLog.addPending(txId, ['central'], query, params)
-            logs.push(`Transaction ${query} with params ${params} added to pending log for central (${txId})`)
+            logs.push(`Transaction ${txId} added to pending log for central`)
 
             logs.push("Attempting to recover central node...")
             logs.push(await simulateNodeRecovery('central', txId))
 
             logs.push("Verifying final state...")
             for (const node of relevantNodes) {
-                // @ts-ignore
                 const conn = await getDbConnection(dbConfigs[node])
-                const [rows] = await conn.execute("SELECT * FROM games WHERE game_id = ?", [99997])
+                const [rows] = await conn.execute("SELECT * FROM games WHERE game_id = ?", [maxGameId])
                 logs.push(`Data on ${node}: ${rows ? 'Present' : 'Not present'}`)
                 await conn.end()
             }
@@ -295,14 +302,15 @@ async function failRecover3() {
     return logs
 }
 
-async function failRecover4() {
+async function failRecover4(gameData: any) {
     const logs = []
     const txId = Date.now().toString()
 
     try {
-        const query = "INSERT INTO games (game_id, name, release_year) VALUES (?, ?, ?)"
-        const releaseYear = 2020
-        const params = [99996, "Test Game (2020)", releaseYear]
+        const maxGameId = await getMaxGameId('central')
+        const query = "INSERT INTO games (game_id, name, release_year, req_age, price, mc_score, release_month, release_day) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        const releaseYear = gameData.release_year
+        const params = [maxGameId, gameData.name, releaseYear, gameData.req_age, gameData.price, gameData.mc_score, gameData.release_month, gameData.release_day]
         const relevantNodes = getRelevantNodes(releaseYear)
 
         logs.push("Starting transaction on central node...")
@@ -315,7 +323,7 @@ async function failRecover4() {
             logs.push(await simulateNodeFailure('node2'))
 
             transactionLog.addPending(txId, ['node2'], query, params)
-            logs.push(`Transaction ${query} with params ${params} added to pending log for node2 (${txId})`)
+            logs.push(`Transaction ${txId} added to pending log for node2`)
 
             logs.push("Attempting to recover node2...")
             logs.push(await simulateNodeRecovery('node2', txId))
@@ -324,7 +332,7 @@ async function failRecover4() {
             for (const node of relevantNodes) {
                 // @ts-ignore
                 const conn = await getDbConnection(dbConfigs[node])
-                const [rows] = await conn.execute("SELECT * FROM games WHERE game_id = ?", [99996])
+                const [rows] = await conn.execute("SELECT * FROM games WHERE game_id = ?", [maxGameId])
                 logs.push(`Data on ${node}: ${rows ? 'Present' : 'Not present'}`)
                 await conn.end()
             }
@@ -341,22 +349,22 @@ async function failRecover4() {
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (req.method === 'POST') {
-        const { case: caseNumber } = req.body
+        const { case: caseNumber, gameData } = req.body
 
         try {
             let logs
             switch (caseNumber) {
                 case 1:
-                    logs = await failRecover1()
+                    logs = await failRecover1(gameData)
                     break
                 case 2:
-                    logs = await failRecover2()
+                    logs = await failRecover2(gameData)
                     break
                 case 3:
-                    logs = await failRecover3()
+                    logs = await failRecover3(gameData)
                     break
                 case 4:
-                    logs = await failRecover4()
+                    logs = await failRecover4(gameData)
                     break
                 default:
                     return res.status(400).json({ error: 'Invalid case number' })

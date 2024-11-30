@@ -1,25 +1,30 @@
-'use client'
+"use client"
 
-import { useState, useEffect } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useState } from 'react'
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 export default function DistributedDatabaseSimulator() {
-  const [activeTab, setActiveTab] = useState('transactions')
-  const [transactionLogs, setTransactionLogs] = useState({
-    case1: [],
-    case2: [],
-    case3: []
-  })
-  const [crashLogs, setCrashLogs] = useState({
-    case1: [],
-    case2: [],
-    case3: [],
-    case4: []
+  const [concurrencyLogs, setConcurrencyLogs] = useState({})
+  const [crashLogs, setCrashLogs] = useState({})
+  const [gameData, setGameData] = useState({
+    name: '',
+    release_year: '',
+    req_age: '',
+    price: '',
+    mc_score: '',
+    release_month: '',
+    release_day: ''
   })
 
-  const simulateTransaction = async (caseNumber: number) => {
+  const handleInputChange = (e: any) => {
+    const { name, value } = e.target
+    setGameData(prev => ({ ...prev, [name]: value }))
+  }
+
+  const simulateConcurrency = async (caseNumber: number) => {
     try {
       const response = await fetch('/api/simulate', {
         method: 'POST',
@@ -34,13 +39,13 @@ export default function DistributedDatabaseSimulator() {
       }
 
       const data = await response.json()
-      setTransactionLogs(prev => ({
+      setConcurrencyLogs(prev => ({
         ...prev,
         [`case${caseNumber}`]: data.logs
       }))
     } catch (error) {
       console.error('Error:', error)
-      setTransactionLogs(prev => ({
+      setConcurrencyLogs(prev => ({
         ...prev,
         [`case${caseNumber}`]: ['Error occurred during simulation']
       }))
@@ -54,7 +59,7 @@ export default function DistributedDatabaseSimulator() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ case: caseNumber }),
+        body: JSON.stringify({ case: caseNumber, gameData }),
       })
 
       if (!response.ok) {
@@ -75,108 +80,84 @@ export default function DistributedDatabaseSimulator() {
     }
   }
 
+
   return (
       <div className="container mx-auto p-4">
         <h1 className="text-2xl font-bold mb-4">Distributed Database Simulator</h1>
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <Tabs defaultValue="concurrency">
           <TabsList>
-            <TabsTrigger value="transactions">Concurrent Transactions</TabsTrigger>
-            <TabsTrigger value="crashes">Global Crash and Recovery</TabsTrigger>
+            <TabsTrigger value="concurrency">Concurrency Control</TabsTrigger>
+            <TabsTrigger value="crash">Crash Recovery</TabsTrigger>
           </TabsList>
-          <TabsContent value="transactions">
-            <Card className="mb-4">
-              <CardHeader>
-                <CardTitle>Case #1: Concurrent Read Operations</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Button onClick={() => simulateTransaction(1)} className="mb-2">Simulate Case 1</Button>
-                <div className="bg-gray-100 p-2 rounded">
-                  {transactionLogs.case1.map((log, index) => (
-                      <p key={index}>{log}</p>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="mb-4">
-              <CardHeader>
-                <CardTitle>Case #2: One Write, Others Read</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Button onClick={() => simulateTransaction(2)} className="mb-2">Simulate Case 2</Button>
-                <div className="bg-gray-100 p-2 rounded">
-                  {transactionLogs.case2.map((log, index) => (
-                      <p key={index}>{log}</p>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="mb-4">
-              <CardHeader>
-                <CardTitle>Case #3: Concurrent Write Operations</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Button onClick={() => simulateTransaction(3)} className="mb-2">Simulate Case 3</Button>
-                <div className="bg-gray-100 p-2 rounded">
-                  {transactionLogs.case3.map((log, index) => (
-                      <p key={index}>{log}</p>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+          <TabsContent value="concurrency">
+            <div className="space-y-4">
+              <Button onClick={() => simulateConcurrency(1)}>Simulate Case 1</Button>
+              <br/>
+              <Button onClick={() => simulateConcurrency(2)}>Simulate Case 2</Button>
+              <br/>
+              <Button onClick={() => simulateConcurrency(3)}>Simulate Case 3</Button>
+              <br/>
+              {Object.entries(concurrencyLogs).map(([key, logs]) => (
+                  <div key={key}>
+                    <h3 className="font-bold">{key}</h3> {/* @ts-ignore*/}
+                    <pre className="bg-gray-100 p-2 rounded">{logs.join('\n')}</pre>
+                  </div>
+              ))}
+            </div>
           </TabsContent>
-          <TabsContent value="crashes">
-            <Card className="mb-4">
-              <CardHeader>
-                <CardTitle>Case #1: Central Node Unavailable</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Button onClick={() => simulateCrash(1)} className="mb-2">Simulate Crash</Button>
-                <div className="bg-gray-100 p-2 rounded">
-                  {crashLogs.case1.map((log, index) => (
-                      <p key={index}>{log}</p>
-                  ))}
+          <TabsContent value="crash">
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="name">Game Name</Label>
+                  <Input id="name" name="name" value={gameData.name} onChange={handleInputChange} required/>
                 </div>
-              </CardContent>
-            </Card>
-            <Card className="mb-4">
-              <CardHeader>
-                <CardTitle>Case #2: Node 2 or 3 Unavailable</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Button onClick={() => simulateCrash(2)} className="mb-2">Simulate Crash</Button>
-                <div className="bg-gray-100 p-2 rounded">
-                  {crashLogs.case2.map((log, index) => (
-                      <p key={index}>{log}</p>
-                  ))}
+                <div>
+                  <Label htmlFor="release_year">Release Year</Label>
+                  <Input id="release_year" name="release_year" type="number" value={gameData.release_year}
+                         onChange={handleInputChange} required/>
                 </div>
-              </CardContent>
-            </Card>
-            <Card className="mb-4">
-              <CardHeader>
-                <CardTitle>Case #3: Failure Writing to Central Node</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Button onClick={() => simulateCrash(3)} className="mb-2">Simulate Crash</Button>
-                <div className="bg-gray-100 p-2 rounded">
-                  {crashLogs.case3.map((log, index) => (
-                      <p key={index}>{log}</p>
-                  ))}
+                <div>
+                  <Label htmlFor="req_age">Required Age</Label>
+                  <Input id="req_age" name="req_age" type="number" value={gameData.req_age}
+                         onChange={handleInputChange}/>
                 </div>
-              </CardContent>
-            </Card>
-            <Card className="mb-4">
-              <CardHeader>
-                <CardTitle>Case #4: Failure Writing to Node 2 or 3</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Button onClick={() => simulateCrash(4)} className="mb-2">Simulate Crash</Button>
-                <div className="bg-gray-100 p-2 rounded">
-                  {crashLogs.case4.map((log, index) => (
-                      <p key={index}>{log}</p>
-                  ))}
+                <div>
+                  <Label htmlFor="price">Price</Label>
+                  <Input id="price" name="price" type="number" step="0.01" value={gameData.price}
+                         onChange={handleInputChange}/>
                 </div>
-              </CardContent>
-            </Card>
+                <div>
+                  <Label htmlFor="mc_score">Metacritic Score</Label>
+                  <Input id="mc_score" name="mc_score" type="number" value={gameData.mc_score}
+                         onChange={handleInputChange}/>
+                </div>
+                <div>
+                  <Label htmlFor="release_month">Release Month</Label>
+                  <Input id="release_month" name="release_month" type="number" min="1" max="12"
+                         value={gameData.release_month} onChange={handleInputChange}/>
+                </div>
+                <div>
+                  <Label htmlFor="release_day">Release Day</Label>
+                  <Input id="release_day" name="release_day" type="number" min="1" max="31" value={gameData.release_day}
+                         onChange={handleInputChange}/>
+                </div>
+              </div>
+              <Button onClick={() => simulateCrash(1)}>Simulate Case 1</Button>
+              <br/>
+              <Button onClick={() => simulateCrash(2)}>Simulate Case 2</Button>
+              <br/>
+              <Button onClick={() => simulateCrash(3)}>Simulate Case 3</Button>
+              <br/>
+              <Button onClick={() => simulateCrash(4)}>Simulate Case 4</Button>
+              <br/>
+              {Object.entries(crashLogs).map(([key, logs]) => (
+                  <div key={key}>
+                    <h3 className="font-bold">{key}</h3> {/* @ts-ignore*/}
+                    <pre className="bg-gray-100 p-2 rounded">{logs.join('\n')}</pre>
+                  </div>
+              ))}
+            </div>
           </TabsContent>
         </Tabs>
       </div>
