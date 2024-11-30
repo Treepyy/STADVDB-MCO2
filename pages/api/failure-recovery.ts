@@ -9,14 +9,14 @@ const dbConfigs = {
         password: "AVNS_JoKOZcI8ED_H53tgdek",
         database: "steam_games_node0",
     },
-    node2: {
+    node1: {
         host: "mysql-32ee4c1e-dlsu-7e2e.g.aivencloud.com",
         port: 21345,
         user: "avnadmin",
         password: "AVNS_bQKF2EAYvlr1z-SkXQR",
         database: "steam_games_node1",
     },
-    node3: {
+    node2: {
         host: "mysql-3bcc7ee1-dlsu-7e2e.g.aivencloud.com",
         port: 21345,
         user: "avnadmin",
@@ -78,6 +78,16 @@ async function executeSafeQuery(node: string, query: string, params: any[]) {
     }
 }
 
+function getRelevantNodes(releaseYear: number): string[] {
+    const nodes = ['central']
+    if (releaseYear < 2010) {
+        nodes.push('node1')
+    } else {
+        nodes.push('node2')
+    }
+    return nodes
+}
+
 async function simulateNodeFailure(node: string) {
     try {
         // @ts-ignore
@@ -135,19 +145,21 @@ async function failRecover1() {
     const txId = Date.now().toString()
 
     try {
-        const query = "INSERT INTO games (game_id, name) VALUES (?, ?)"
-        const params = [99999, "Test Game"]
+        const query = "INSERT INTO games (game_id, name, release_year) VALUES (?, ?, ?)"
+        const releaseYear = 2005
+        const params = [99999, "Test Game (2005)", releaseYear]
+        const relevantNodes = getRelevantNodes(releaseYear)
 
-        logs.push("Starting transaction across all nodes...")
+        logs.push(`Starting transaction across nodes: ${relevantNodes.join(', ')}... with params ${params.join(', ')}`)
 
         logs.push("Simulating central node failure...")
         logs.push(await simulateNodeFailure('central'))
 
-        transactionLog.addPending(txId, ['central', 'node2', 'node3'], query, params)
+        transactionLog.addPending(txId, relevantNodes, query, params)
         logs.push(`Transaction ${txId} added to pending log`)
 
-        logs.push("Executing transaction on available nodes (node2, node3)...")
-        for (const node of ['node2', 'node3']) {
+        logs.push(`Executing transaction on available nodes (${relevantNodes.filter(n => n !== 'central').join(', ')})...`)
+        for (const node of relevantNodes.filter(n => n !== 'central')) {
             const success = await executeSafeQuery(node, query, params)
             if (success) {
                 transactionLog.markCompleted(txId, node)
@@ -170,10 +182,10 @@ async function failRecover1() {
         }
 
         logs.push("Verifying final state...")
-        for (const node of ['central', 'node2', 'node3']) {
+        for (const node of relevantNodes) {
             // @ts-ignore
             const conn = await getDbConnection(dbConfigs[node])
-            const [rows] = await conn.execute("SELECT * FROM games WHERE game_id = ?", [999])
+            const [rows] = await conn.execute("SELECT * FROM games WHERE game_id = ?", [99999])
             logs.push(`Data on ${node}: ${rows ? 'Present' : 'Not present'}`)
             if (!rows) {
                 const success = await executeSafeQuery(node, query, params)
@@ -196,19 +208,21 @@ async function failRecover2() {
     const txId = Date.now().toString()
 
     try {
-        const query = "INSERT INTO games (game_id, name) VALUES (?, ?)"
-        const params = [99998, "Test Game 2"]
+        const query = "INSERT INTO games (game_id, name, release_year) VALUES (?, ?, ?)"
+        const releaseYear = 2015
+        const params = [99998, "Test Game (2015)", releaseYear]
+        const relevantNodes = getRelevantNodes(releaseYear)
 
-        logs.push("Starting transaction across all nodes...")
+        logs.push(`Starting transaction across nodes: ${relevantNodes.join(', ')}...`)
 
         logs.push("Simulating node2 failure...")
         logs.push(await simulateNodeFailure('node2'))
 
-        transactionLog.addPending(txId, ['central', 'node2', 'node3'], query, params)
-        logs.push(`Transaction ${txId} added to pending log`)
+        transactionLog.addPending(txId, relevantNodes, query, params)
+        logs.push(`Transaction ${query} with params ${params} added to pending log (${txId})`)
 
-        logs.push("Executing transaction on available nodes (central, node3)...")
-        for (const node of ['central', 'node3']) {
+        logs.push(`Executing transaction on available nodes (${relevantNodes.filter(n => n !== 'node2').join(', ')})...`)
+        for (const node of relevantNodes.filter(n => n !== 'node2')) {
             const success = await executeSafeQuery(node, query, params)
             if (success) {
                 transactionLog.markCompleted(txId, node)
@@ -222,10 +236,10 @@ async function failRecover2() {
         logs.push(await simulateNodeRecovery('node2', txId))
 
         logs.push("Verifying final state...")
-        for (const node of ['central', 'node2', 'node3']) {
+        for (const node of relevantNodes) {
             // @ts-ignore
             const conn = await getDbConnection(dbConfigs[node])
-            const [rows] = await conn.execute("SELECT * FROM games WHERE game_id = ?", [998])
+            const [rows] = await conn.execute("SELECT * FROM games WHERE game_id = ?", [99998])
             logs.push(`Data on ${node}: ${rows ? 'Present' : 'Not present'}`)
             await conn.end()
         }
@@ -242,34 +256,36 @@ async function failRecover3() {
     const txId = Date.now().toString()
 
     try {
-        const query = "INSERT INTO games (game_id, name) VALUES (?, ?)"
-        const params = [99997, "Test Game 3"]
+        const query = "INSERT INTO games (game_id, name, release_year) VALUES (?, ?, ?)"
+        const releaseYear = 2008
+        const params = [99997, "Test Game (2008)", releaseYear]
+        const relevantNodes = getRelevantNodes(releaseYear)
 
-        logs.push("Starting transaction on node2...")
+        logs.push(`Starting transaction on node1...`)
 
-        const success = await executeSafeQuery('node2', query, params)
+        const success = await executeSafeQuery('node1', query, params)
         if (success) {
-            logs.push("Transaction completed successfully on node2")
+            logs.push("Transaction completed successfully on node1")
 
             logs.push("Simulating central node failure during replication...")
             logs.push(await simulateNodeFailure('central'))
 
             transactionLog.addPending(txId, ['central'], query, params)
-            logs.push(`Transaction ${txId} added to pending log for central`)
+            logs.push(`Transaction ${query} with params ${params} added to pending log for central (${txId})`)
 
             logs.push("Attempting to recover central node...")
             logs.push(await simulateNodeRecovery('central', txId))
 
             logs.push("Verifying final state...")
-            for (const node of ['central', 'node2']) {
+            for (const node of relevantNodes) {
                 // @ts-ignore
                 const conn = await getDbConnection(dbConfigs[node])
-                const [rows] = await conn.execute("SELECT * FROM games WHERE game_id = ?", [997])
+                const [rows] = await conn.execute("SELECT * FROM games WHERE game_id = ?", [99997])
                 logs.push(`Data on ${node}: ${rows ? 'Present' : 'Not present'}`)
                 await conn.end()
             }
         } else {
-            logs.push("Initial transaction failed on node2")
+            logs.push("Initial transaction failed on node1")
         }
     } catch (error) {
         // @ts-ignore
@@ -284,8 +300,10 @@ async function failRecover4() {
     const txId = Date.now().toString()
 
     try {
-        const query = "INSERT INTO games (game_id, name) VALUES (?, ?)"
-        const params = [99996, "Test Game 4"]
+        const query = "INSERT INTO games (game_id, name, release_year) VALUES (?, ?, ?)"
+        const releaseYear = 2020
+        const params = [99996, "Test Game (2020)", releaseYear]
+        const relevantNodes = getRelevantNodes(releaseYear)
 
         logs.push("Starting transaction on central node...")
 
@@ -297,16 +315,16 @@ async function failRecover4() {
             logs.push(await simulateNodeFailure('node2'))
 
             transactionLog.addPending(txId, ['node2'], query, params)
-            logs.push(`Transaction ${txId} added to pending log for node2`)
+            logs.push(`Transaction ${query} with params ${params} added to pending log for node2 (${txId})`)
 
             logs.push("Attempting to recover node2...")
             logs.push(await simulateNodeRecovery('node2', txId))
 
             logs.push("Verifying final state...")
-            for (const node of ['central', 'node2']) {
+            for (const node of relevantNodes) {
                 // @ts-ignore
                 const conn = await getDbConnection(dbConfigs[node])
-                const [rows] = await conn.execute("SELECT * FROM games WHERE game_id = ?", [996])
+                const [rows] = await conn.execute("SELECT * FROM games WHERE game_id = ?", [99996])
                 logs.push(`Data on ${node}: ${rows ? 'Present' : 'Not present'}`)
                 await conn.end()
             }
