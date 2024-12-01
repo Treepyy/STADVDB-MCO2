@@ -1,0 +1,64 @@
+import { NextApiRequest, NextApiResponse } from 'next'
+import { getConnection, releaseConnection } from './db'
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+    if (req.method === 'GET') {
+        try {
+            const { nodeStatus } = req.query
+            const parsedNodeStatus = JSON.parse(nodeStatus as string)
+
+            const report1Query = `
+        SELECT name, mc_score
+        FROM games
+        WHERE mc_score IS NOT NULL
+        ORDER BY mc_score DESC
+        LIMIT 10
+      `
+
+            const report2Query = `
+        SELECT release_year, AVG(price) as avg_price
+        FROM games
+        WHERE price IS NOT NULL
+        GROUP BY release_year
+        ORDER BY release_year
+      `
+
+            let report1 = ''
+            let report2 = ''
+
+            // Generate reports from central node
+            if (parsedNodeStatus.central) {
+                const centralConn = await getConnection('central')
+                try {
+                    const [rows1] = await centralConn.execute(report1Query)
+                    report1 = formatReport1(rows1)
+
+                    const [rows2] = await centralConn.execute(report2Query)
+                    report2 = formatReport2(rows2)
+                } finally {
+                    releaseConnection(centralConn)
+                }
+            }
+
+            res.status(200).json({ report1, report2 })
+        } catch (error) {
+            console.error('Error generating reports:', error)
+            res.status(500).json({ error: 'Error generating reports' })
+        }
+    } else {
+        res.setHeader('Allow', ['GET'])
+        res.status(405).end(`Method ${req.method} Not Allowed`)
+    }
+}
+
+function formatReport1(rows: any[]) {
+    return rows.map((row, index) =>
+        `${index + 1}. ${row.name} (Score: ${row.mc_score})`
+    ).join('\n')
+}
+
+function formatReport2(rows: any[]) {
+    return rows.map(row =>
+        `${row.release_year}: $${row.avg_price}`
+    ).join('\n')
+}

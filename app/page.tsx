@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { useRouter } from 'next/navigation'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 export default function DistributedDatabaseSimulator() {
@@ -94,9 +95,13 @@ export default function DistributedDatabaseSimulator() {
     }
   }
 
+  const router = useRouter();
   return (
       <div className="container mx-auto p-4">
         <h1 className="text-2xl font-bold mb-4">Distributed Database Simulator</h1>
+        <div className="mb-4">
+          <Button onClick={() => router.push('/features')}>Go to Features</Button>
+        </div>
         <Tabs defaultValue="concurrency">
           <TabsList>
             <TabsTrigger value="concurrency">Concurrency Control</TabsTrigger>
