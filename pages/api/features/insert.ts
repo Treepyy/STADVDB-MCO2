@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next'
-import { executeTransaction, getRelevantNodes } from './db'
+import { executeWithLogging, getRelevantNodes, getMaxGameId } from './db'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (req.method === 'POST') {
@@ -9,9 +9,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             const relevantNodes = getRelevantNodes(releaseYear)
 
             const query = `
-        INSERT INTO games (name, req_age, price, mc_score, release_year, release_month, release_day)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `
+                INSERT INTO games (name, req_age, price, mc_score, release_year, release_month, release_day)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            `
             const params = [
                 game.name,
                 parseInt(game.req_age),
@@ -22,7 +22,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 parseInt(game.release_day)
             ]
 
-            await executeTransaction(relevantNodes, [query], [params], nodeStatus)
+            await executeWithLogging(relevantNodes, [query], [params], nodeStatus)
 
             res.status(200).json({ message: 'Game inserted successfully' })
         } catch (error) {

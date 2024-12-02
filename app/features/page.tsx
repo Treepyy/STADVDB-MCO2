@@ -22,13 +22,7 @@ export default function FeaturesPage() {
     })
     const [updateGame, setUpdateGame] = useState({
         game_id: '',
-        name: '',
-        req_age: '',
         price: '',
-        mc_score: '',
-        release_year: '',
-        release_month: '',
-        release_day: ''
     })
     const [searchId, setSearchId] = useState('')
     const [searchResult, setSearchResult] = useState(null)
@@ -106,7 +100,7 @@ export default function FeaturesPage() {
             alert('Error generating reports')
         }
     }
-    
+
     const router = useRouter()
 
     return (
@@ -133,8 +127,8 @@ export default function FeaturesPage() {
             <Tabs defaultValue="insert">
                 <TabsList>
                     <TabsTrigger value="insert">Insert Game</TabsTrigger>
-                    <TabsTrigger value="update">Update Game</TabsTrigger>
-                    <TabsTrigger value="search">Search Game</TabsTrigger>
+                    <TabsTrigger value="update">Update Game Price</TabsTrigger>
+                    <TabsTrigger value="search">Search Game by ID</TabsTrigger>
                     <TabsTrigger value="reports">Reports</TabsTrigger>
                 </TabsList>
                 <TabsContent value="insert">

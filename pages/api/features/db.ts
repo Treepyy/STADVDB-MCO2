@@ -1,5 +1,7 @@
 // @ts-nocheck
+
 import mysql from 'mysql2/promise'
+import { executeWithLogging, recoverNode } from './log-recovery'
 
 const dbConfigs = {
     central: {
@@ -49,51 +51,24 @@ export function getRelevantNodes(releaseYear: number): string[] {
     return nodes
 }
 
-export async function executeTransaction(nodes: string[], queries: string[], params: any[][], nodeStatus: any) {
-    const connections = {}
-    let results = []
-
+export async function getMaxGameId(node: string): Promise<number> {
+    const conn = await getConnection(node)
     try {
-        // Acquire connections
-        for (const node of nodes) {
-            if (nodeStatus[node]) {
-                connections[node] = await getConnection(node)
-                await connections[node].beginTransaction()
-            }
-        }
-
-        // Execute queries
-        for (let i = 0; i < queries.length; i++) {
-            for (const node of nodes) {
-                if (nodeStatus[node]) {
-                    const [result] = await connections[node].execute(queries[i], params[i])
-                    results.push(result)
-                }
-            }
-        }
-
-        // Commit transactions
-        for (const node of nodes) {
-            if (nodeStatus[node]) {
-                await connections[node].commit()
-            }
-        }
-
-        return results
-    } catch (error) {
-        // Rollback transactions
-        for (const node of nodes) {
-            if (connections[node]) {
-                await connections[node].rollback()
-            }
-        }
-        throw error
+        const [result] = await conn.execute('SELECT MAX(game_id) as maxId FROM games')
+        return (result as any)[0].maxId + 1
     } finally {
-        // Release connections
-        for (const node of nodes) {
-            if (connections[node]) {
-                releaseConnection(connections[node])
-            }
-        }
+        await conn.release()
     }
 }
+
+export async function getYear(node: string, id: int): Promise<number> {
+    const conn = await getConnection(node)
+    try {
+        const [result] = await conn.execute(`SELECT release_year FROM games WHERE game_id = ${id}`)
+        return (result as any)[0].release_year
+    } finally {
+        await conn.release()
+    }
+}
+
+export { executeWithLogging, recoverNode }

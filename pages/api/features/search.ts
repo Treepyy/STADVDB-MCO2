@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next'
-import { getConnection, releaseConnection } from './db'
+import { getConnection, releaseConnection, recoverNode } from './db'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (req.method === 'GET') {
@@ -20,6 +20,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                     if (Array.isArray(rows) && rows.length > 0) {
                         game = rows[0]
                     }
+                } catch (error) {
+                    console.error('Error querying central node:', error)
+                    await recoverNode('central')
                 } finally {
                     releaseConnection(centralConn)
                 }
@@ -37,6 +40,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                                 game = rows[0]
                                 break
                             }
+                        } catch (error) {
+                            console.error(`Error querying ${node}:`, error)
+                            await recoverNode(node)
                         } finally {
                             releaseConnection(conn)
                         }

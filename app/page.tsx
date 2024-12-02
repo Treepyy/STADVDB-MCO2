@@ -135,10 +135,13 @@ export default function DistributedDatabaseSimulator() {
                 </div>
               </div>
               <hr/>
+              <Label>Case #1: Concurrent transactions in two or more nodes are reading the same data item.</Label><br/>
               <Button onClick={() => simulateConcurrency(1)}>Simulate Case 1</Button>
-              <br/>
+              <br/><br/>
+              <Label>Case #2: At least one transaction in the three nodes is writing (update / delete) and the other concurrent transactions are reading the same data item.</Label><br/>
               <Button onClick={() => simulateConcurrency(2)}>Simulate Case 2</Button>
-              <br/>
+              <br/><br/>
+              <Label>Case #3: Concurrent transactions in two or more nodes are writing (update / delete) the same data item.</Label><br/>
               <Button onClick={() => simulateConcurrency(3)}>Simulate Case 3</Button>
               <br/>
               {Object.entries(concurrencyLogs).map(([key, logs]) => (
@@ -188,14 +191,18 @@ export default function DistributedDatabaseSimulator() {
                 </div>
               </div>
               <hr/>
+              <Label>Case #1: The central node is unavailable during the execution of a transaction and then eventually comes back online</Label><br/>
               <Button onClick={() => simulateCrash(1)}>Simulate Case 1</Button>
-              <br/>
+              <br/><br/>
+              <Label>Case #2: Node 2 or Node 3 is unavailable during the execution of a transaction and then eventually comes back online</Label><br/>
               <Button onClick={() => simulateCrash(2)}>Simulate Case 2</Button>
-              <br/>
+              <br/><br/>
+              <Label>Case #3: Failure in writing to the central node when attempting to replicate the transaction from Node 1 or Node 2</Label><br/>
               <Button onClick={() => simulateCrash(3)}>Simulate Case 3</Button>
-              <br/>
+              <br/><br/>
+              <Label>Case #4: Failure in writing to Node 2 or Node 3 when attempting to replicate the transaction from the central node</Label><br/>
               <Button onClick={() => simulateCrash(4)}>Simulate Case 4</Button>
-              <br/>
+              <br/><br/>
               {Object.entries(crashLogs).map(([key, logs]) => (
                   <div key={key}>
                     <h3 className="font-bold">{key}</h3>

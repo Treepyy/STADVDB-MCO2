@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next'
-import { getConnection, releaseConnection } from './db'
+import { getConnection, releaseConnection, recoverNode } from './db'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (req.method === 'GET') {
@@ -8,20 +8,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             const parsedNodeStatus = JSON.parse(nodeStatus as string)
 
             const report1Query = `
-        SELECT name, mc_score
-        FROM games
-        WHERE mc_score IS NOT NULL
-        ORDER BY mc_score DESC
-        LIMIT 10
-      `
+                SELECT name, mc_score
+                FROM games
+                WHERE mc_score IS NOT NULL
+                ORDER BY mc_score DESC
+                    LIMIT 10
+            `
 
             const report2Query = `
-        SELECT release_year, AVG(price) as avg_price
-        FROM games
-        WHERE price IS NOT NULL
-        GROUP BY release_year
-        ORDER BY release_year
-      `
+                SELECT release_year, AVG(price) as avg_price
+                FROM games
+                WHERE price IS NOT NULL
+                GROUP BY release_year
+                ORDER BY release_year
+            `
 
             let report1 = ''
             let report2 = ''
@@ -35,8 +35,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
                     const [rows2] = await centralConn.execute(report2Query)
                     report2 = formatReport2(rows2)
+                } catch (error) {
+                    console.error('Error querying central node:', error)
+                    await recoverNode('central')
                 } finally {
                     releaseConnection(centralConn)
+                }
+            }
+
+            // If reports are empty, try other nodes
+            if (!report1 || !report2) {
+                const otherNodes = ['node1', 'node2']
+                for (const node of otherNodes) {
+                    if (parsedNodeStatus[node] && (!report1 || !report2)) {
+                        const conn = await getConnection(node)
+                        try {
+                            if (!report1) {
+                                const [rows1] = await conn.execute(report1Query)
+                                report1 = formatReport1(rows1)
+                            }
+                            if (!report2) {
+                                const [rows2] = await conn.execute(report2Query)
+                                report2 = formatReport2(rows2)
+                            }
+                        } catch (error) {
+                            console.error(`Error querying ${node}:`, error)
+                            await recoverNode(node)
+                        } finally {
+                            releaseConnection(conn)
+                        }
+                    }
                 }
             }
 
@@ -59,6 +87,6 @@ function formatReport1(rows: any[]) {
 
 function formatReport2(rows: any[]) {
     return rows.map(row =>
-        `${row.release_year}: $${row.avg_price}`
+        `${row.release_year}: $${row.avg_price.toFixed(2)}`
     ).join('\n')
 }
