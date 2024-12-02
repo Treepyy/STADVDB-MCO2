@@ -6,6 +6,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         try {
             const { id, nodeStatus } = req.query
             const parsedNodeStatus = JSON.parse(nodeStatus as string)
+            console.log(parsedNodeStatus)
 
             const query = 'SELECT * FROM games WHERE game_id = ?'
             const params = [parseInt(id as string)]

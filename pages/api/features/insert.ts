@@ -5,14 +5,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (req.method === 'POST') {
         try {
             const { game, nodeStatus } = req.body
+            console.log(nodeStatus)
+            const new_id = await getMaxGameId("central")
             const releaseYear = parseInt(game.release_year)
             const relevantNodes = getRelevantNodes(releaseYear)
 
             const query = `
-                INSERT INTO games (name, req_age, price, mc_score, release_year, release_month, release_day)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO games (game_id, name, req_age, price, mc_score, release_year, release_month, release_day)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             `
             const params = [
+                new_id,
                 game.name,
                 parseInt(game.req_age),
                 parseFloat(game.price),
