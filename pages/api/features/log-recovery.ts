@@ -64,6 +64,7 @@ export async function executeWithLogging(nodes: string[], queries: string[], par
         for (const node of nodes) {
             if (nodeStatus[node]) {
                 connections[node] = await getConnection(node);
+                await connections[node].execute(`SET SESSION TRANSACTION ISOLATION LEVEL SERIALIZABLE`)
                 await connections[node].beginTransaction();
             }
         }

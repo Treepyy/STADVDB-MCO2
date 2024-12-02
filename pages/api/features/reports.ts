@@ -87,6 +87,6 @@ function formatReport1(rows: any[]) {
 
 function formatReport2(rows: any[]) {
     return rows.map(row =>
-        `${row.release_year}: $${row.avg_price.toFixed(2)}`
+        `${row.release_year}: $${row.avg_price}`
     ).join('\n')
 }
