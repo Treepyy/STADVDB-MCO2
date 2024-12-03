@@ -1,7 +1,7 @@
 // @ts-nocheck
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -44,8 +44,23 @@ export default function FeaturesPage() {
         setUpdateGame(prev => ({ ...prev, [name]: value }))
     }
 
-    const handleNodeStatusChange = (node) => {
-        setNodeStatus(prev => ({ ...prev, [node]: !prev[node] }))
+    const handleNodeStatusChange = async (node) => {
+        const newStatus = !nodeStatus[node]
+        setNodeStatus(prev => ({ ...prev, [node]: newStatus }))
+
+        if (newStatus) {
+            try {
+                const response = await fetch('/api/features/insert', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ node })
+                })
+                const data = await response.json()
+                console.log(data.message)
+            } catch (error) {
+                console.error('Error executing stored transactions:', error)
+            }
+        }
     }
 
     const insertGame = async () => {

@@ -1,21 +1,18 @@
-import { NextApiRequest, NextApiResponse } from 'next'
-import { executeWithLogging, getRelevantNodes, getMaxGameId } from './db'
+import { NextApiRequest, NextApiResponse } from 'next';
+import { executeWithLogging, executeStoredTransactions, getRelevantNodes } from './log-recovery';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (req.method === 'POST') {
         try {
-            const { game, nodeStatus } = req.body
-            console.log(nodeStatus)
-            const new_id = await getMaxGameId("central")
-            const releaseYear = parseInt(game.release_year)
-            const relevantNodes = getRelevantNodes(releaseYear)
+            const { game, nodeStatus } = req.body;
+            const releaseYear = parseInt(game.release_year);
+            const relevantNodes = getRelevantNodes(releaseYear);
 
             const query = `
-                INSERT INTO games (game_id, name, req_age, price, mc_score, release_year, release_month, release_day)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            `
+        INSERT INTO games (name, req_age, price, mc_score, release_year, release_month, release_day)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `;
             const params = [
-                new_id,
                 game.name,
                 parseInt(game.req_age),
                 parseFloat(game.price),
@@ -23,17 +20,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 releaseYear,
                 parseInt(game.release_month),
                 parseInt(game.release_day)
-            ]
+            ];
 
-            await executeWithLogging(relevantNodes, [query], [params], nodeStatus)
+            await executeWithLogging(relevantNodes, [query], [params], nodeStatus, res);
 
-            res.status(200).json({ message: 'Game inserted successfully' })
+            res.status(200).json({ message: 'Game inserted successfully' });
         } catch (error) {
-            console.error('Error inserting game:', error)
-            res.status(500).json({ error: 'Error inserting game' })
+            console.error('Error inserting game:', error);
+            res.status(500).json({ error: 'Error inserting game' });
+        }
+    } else if (req.method === 'PUT') {
+        try {
+            const { node } = req.body;
+            await executeStoredTransactions(node, req, res);
+            res.status(200).json({ message: 'Stored transactions executed successfully' });
+        } catch (error) {
+            console.error('Error executing stored transactions:', error);
+            res.status(500).json({ error: 'Error executing stored transactions' });
         }
     } else {
-        res.setHeader('Allow', ['POST'])
-        res.status(405).end(`Method ${req.method} Not Allowed`)
+        res.setHeader('Allow', ['POST', 'PUT']);
+        res.status(405).end(`Method ${req.method} Not Allowed`);
     }
 }

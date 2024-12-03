@@ -1,7 +1,6 @@
-// @ts-nocheck
 
 import mysql from 'mysql2/promise'
-import { executeWithLogging, recoverNode } from './log-recovery'
+import { executeWithLogging } from './log-recovery'
 
 const dbConfigs = {
     central: {
@@ -34,6 +33,7 @@ const pools = {
 }
 
 export async function getConnection(node: string) {
+    // @ts-ignore
     return await pools[node].getConnection()
 }
 
@@ -61,7 +61,7 @@ export async function getMaxGameId(node: string): Promise<number> {
     }
 }
 
-export async function getYear(node: string, id: int): Promise<number> {
+export async function getYear(node: string, id: number): Promise<number> {
     const conn = await getConnection(node)
     try {
         const [result] = await conn.execute(`SELECT release_year FROM games WHERE game_id = ${id}`)
@@ -71,4 +71,4 @@ export async function getYear(node: string, id: int): Promise<number> {
     }
 }
 
-export { executeWithLogging, recoverNode }
+export { executeWithLogging }

@@ -1,5 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next'
-import { executeWithLogging, getRelevantNodes, getYear } from './db'
+import { executeWithLogging, getRelevantNodes, getLogForCookie } from './log-recovery'
+import { getYear } from "./db";
+import { serialize } from 'cookie';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (req.method === 'PUT') {
@@ -19,6 +21,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             ]
 
             await executeWithLogging(relevantNodes, [query], [params], nodeStatus)
+
+            // Set the cookie after executing the query
+            const cookieValue = getLogForCookie();
+            res.setHeader('Set-Cookie', serialize('transactionLog', cookieValue, { path: '/', httpOnly: true, maxAge: 3600 }));
 
             res.status(200).json({ message: 'Game updated successfully' })
         } catch (error) {

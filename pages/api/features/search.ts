@@ -4,6 +4,8 @@ import { getConnection, releaseConnection, recoverNode } from './db'
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (req.method === 'GET') {
         try {
+            // master-slave, can only read from node1 and node2 not central
+
             const { id, nodeStatus } = req.query
             const parsedNodeStatus = JSON.parse(nodeStatus as string)
             console.log(parsedNodeStatus)
@@ -13,9 +15,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
             let game = null
 
-            // Try central node first
-            if (parsedNodeStatus.central) {
-                const centralConn = await getConnection('central')
+            // Try node1 first
+            if (parsedNodeStatus.node1) {
+                const centralConn = await getConnection('node1')
                 try {
                     const [rows] = await centralConn.execute(query, params)
                     if (Array.isArray(rows) && rows.length > 0) {
@@ -29,24 +31,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 }
             }
 
+
             // If not found in central, try other nodes
             if (!game) {
-                const otherNodes = ['node1', 'node2']
-                for (const node of otherNodes) {
-                    if (parsedNodeStatus[node]) {
-                        const conn = await getConnection(node)
-                        try {
-                            const [rows] = await conn.execute(query, params)
-                            if (Array.isArray(rows) && rows.length > 0) {
-                                game = rows[0]
-                                break
-                            }
-                        } catch (error) {
-                            console.error(`Error querying ${node}:`, error)
-                            await recoverNode(node)
-                        } finally {
-                            releaseConnection(conn)
+                if (parsedNodeStatus.node2) {
+                    const centralConn = await getConnection('node2')
+                    try {
+                        const [rows] = await centralConn.execute(query, params)
+                        if (Array.isArray(rows) && rows.length > 0) {
+                            game = rows[0]
                         }
+                    } catch (error) {
+                        console.error('Error querying central node:', error)
+                        await recoverNode('central')
+                    } finally {
+                        releaseConnection(centralConn)
                     }
                 }
             }

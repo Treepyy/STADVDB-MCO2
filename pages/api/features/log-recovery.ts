@@ -1,13 +1,11 @@
-// @ts-nocheck
-
-import { getConnection, releaseConnection } from './db'
+import { serialize, parse } from 'cookie';
+import { NextApiRequest, NextApiResponse } from 'next';
+import mysql from 'mysql2/promise';
 
 interface LogEntry {
-    txId: string;
-    operation: string;
+    nodes: string[];
     query: string;
     params: any[];
-    nodes: string[];
 }
 
 class TransactionLog {
@@ -24,15 +22,91 @@ class TransactionLog {
     clear() {
         this.log = [];
     }
+
+    getLogForCookie() {
+        return JSON.stringify(this.log);
+    }
+
+    loadFromCookie(req: NextApiRequest) {
+        const cookies = parse(req.headers.cookie || '');
+        const logCookie = cookies.transactionLog;
+        if (logCookie) {
+            this.log = JSON.parse(logCookie);
+        }
+    }
 }
 
 const transactionLog = new TransactionLog();
 
-export async function logOperation(txId: string, operation: string, query: string, params: any[], nodes: string[]) {
-    transactionLog.addEntry({ txId, operation, query, params, nodes });
+const dbConfigs = {
+    central: {
+        host: "mysql-53200c2-dlsu-7e2e.c.aivencloud.com",
+        port: 21345,
+        user: "avnadmin",
+        password: "AVNS_JoKOZcI8ED_H53tgdek",
+        database: "steam_games_node0",
+    },
+    node1: {
+        host: "mysql-32ee4c1e-dlsu-7e2e.g.aivencloud.com",
+        port: 21345,
+        user: "avnadmin",
+        password: "AVNS_bQKF2EAYvlr1z-SkXQR",
+        database: "steam_games_node1",
+    },
+    node2: {
+        host: "mysql-3bcc7ee1-dlsu-7e2e.g.aivencloud.com",
+        port: 21345,
+        user: "avnadmin",
+        password: "AVNS_kd4Si3gkCPxz9pOI6iD",
+        database: "steam_games_node2",
+    }
+};
+
+const pools = {
+    central: mysql.createPool(dbConfigs.central),
+    node1: mysql.createPool(dbConfigs.node1),
+    node2: mysql.createPool(dbConfigs.node2)
+};
+
+async function getConnection(node: string) {
+    // @ts-ignore
+    return await pools[node].getConnection();
 }
 
-export async function recoverNode(node: string) {
+async function releaseConnection(connection: mysql.PoolConnection) {
+    connection.release();
+}
+
+export async function executeWithLogging(nodes: string[], queries: string[], params: any[][], nodeStatus: any) {
+    const results = [];
+    for (let i = 0; i < queries.length; i++) {
+        const entry: LogEntry = { nodes, query: queries[i], params: params[i] };
+        transactionLog.addEntry(entry);
+
+        for (const node of nodes) {
+            if (nodeStatus[node]) {
+                const conn = await getConnection(node);
+                try {
+                    await conn.beginTransaction();
+                    const [result] = await conn.execute(queries[i], params[i]);
+                    await conn.commit();
+                    results.push(result);
+                } catch (error) {
+                    await conn.rollback();
+                    console.error(`Error executing query on ${node}:`, error);
+                    throw error;
+                } finally {
+                    releaseConnection(conn);
+                }
+            }
+        }
+    }
+
+    return results;
+}
+
+export async function executeStoredTransactions(node: string, req: NextApiRequest) {
+    transactionLog.loadFromCookie(req);
     const entries = transactionLog.getEntriesForNode(node);
     const conn = await getConnection(node);
 
@@ -44,66 +118,29 @@ export async function recoverNode(node: string) {
         }
 
         await conn.commit();
-        console.log(`Recovery completed for node: ${node}`);
+        console.log(`Stored transactions executed for node: ${node}`);
+
+        // Clear executed transactions from the log
+        transactionLog.clear();
     } catch (error) {
         await conn.rollback();
-        console.error(`Recovery failed for node: ${node}`, error);
+        console.error(`Failed to execute stored transactions for node: ${node}`, error);
         throw error;
     } finally {
         releaseConnection(conn);
     }
 }
 
-export async function executeWithLogging(nodes: string[], queries: string[], params: any[][], nodeStatus: any) {
-    const txId = Date.now().toString();
-    const connections = {};
-    let results = [];
-
-    try {
-        // Acquire connections and begin transactions
-        for (const node of nodes) {
-            if (nodeStatus[node]) {
-                connections[node] = await getConnection(node);
-                await connections[node].execute(`SET SESSION TRANSACTION ISOLATION LEVEL SERIALIZABLE`)
-                await connections[node].beginTransaction();
-            }
-        }
-
-        // Execute queries and log operations
-        for (let i = 0; i < queries.length; i++) {
-            for (const node of nodes) {
-                if (nodeStatus[node]) {
-                    const [result] = await connections[node].execute(queries[i], params[i]);
-                    results.push(result);
-                    await logOperation(txId, 'execute', queries[i], params[i], [node]);
-                }
-            }
-        }
-
-        // Commit transactions
-        for (const node of nodes) {
-            if (nodeStatus[node]) {
-                await connections[node].commit();
-                await logOperation(txId, 'commit', '', [], [node]);
-            }
-        }
-
-        return results;
-    } catch (error) {
-        // Rollback transactions and log rollbacks
-        for (const node of nodes) {
-            if (connections[node]) {
-                await connections[node].rollback();
-                await logOperation(txId, 'rollback', '', [], [node]);
-            }
-        }
-        throw error;
-    } finally {
-        // Release connections
-        for (const node of nodes) {
-            if (connections[node]) {
-                releaseConnection(connections[node]);
-            }
-        }
+export function getRelevantNodes(releaseYear: number): string[] {
+    const nodes = ['central'];
+    if (releaseYear < 2010) {
+        nodes.push('node1');
+    } else {
+        nodes.push('node2');
     }
+    return nodes;
+}
+
+export function getLogForCookie() {
+    return transactionLog.getLogForCookie();
 }
