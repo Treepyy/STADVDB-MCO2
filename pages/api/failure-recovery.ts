@@ -232,13 +232,14 @@ async function failRecover2(gameData: any) {
         logs.push(`Transaction ${txId} added to pending log`)
 
         logs.push(`Executing transaction on available nodes (${relevantNodes.filter(n => n !== node).join(', ')})...`)
-        for (const node of relevantNodes.filter(n => n !== node)) {
-            const success = await executeSafeQuery(node, query, params)
+        console.log(node)
+        for (const nodes of relevantNodes.filter(n => n !== node)) {
+            const success = await executeSafeQuery(nodes, query, params)
             if (success) {
-                transactionLog.markCompleted(txId, node)
-                logs.push(`Transaction completed successfully on ${node}`)
+                transactionLog.markCompleted(txId, nodes)
+                logs.push(`Transaction completed successfully on ${nodes}`)
             } else {
-                logs.push(`Transaction failed on ${node}`)
+                logs.push(`Transaction failed on ${nodes}`)
             }
         }
 
