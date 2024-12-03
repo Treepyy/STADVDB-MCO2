@@ -119,6 +119,7 @@ export async function executeStoredTransactions(node: string, req: NextApiReques
 
         await conn.commit();
         console.log(`Stored transactions executed for node: ${node}`);
+        console.log("Transactions: " + JSON.stringify(transactionLog.getEntriesForNode(node)));
 
         // Clear executed transactions from the log
         transactionLog.clear();

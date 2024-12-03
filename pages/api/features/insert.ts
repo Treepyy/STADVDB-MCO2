@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { executeWithLogging, executeStoredTransactions, getRelevantNodes } from './log-recovery';
+import { serialize } from 'cookie';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (req.method === 'POST') {
@@ -33,6 +34,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         try {
             const { node } = req.body;
             await executeStoredTransactions(node, req);
+
+            // clear cookie after execution
+            res.setHeader('Set-Cookie', serialize('transactionLog', '', { path: '/', httpOnly: true, maxAge: -1 }));
+
             res.status(200).json({ message: 'Stored transactions executed successfully' });
         } catch (error) {
             console.error('Error executing stored transactions:', error);
