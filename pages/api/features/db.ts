@@ -1,6 +1,6 @@
 
 import mysql from 'mysql2/promise'
-import { executeWithLogging } from './log-recovery'
+import { executeWithLogging, recoverNode } from './log-recovery'
 
 const dbConfigs = {
     central: {
@@ -71,4 +71,5 @@ export async function getYear(node: string, id: number): Promise<number> {
     }
 }
 
-export { executeWithLogging }
+
+export { executeWithLogging, recoverNode }

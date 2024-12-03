@@ -144,3 +144,25 @@ export function getRelevantNodes(releaseYear: number): string[] {
 export function getLogForCookie() {
     return transactionLog.getLogForCookie();
 }
+
+export async function recoverNode(node: string) {
+    const entries = transactionLog.getEntriesForNode(node);
+    const conn = await getConnection(node);
+
+    try {
+        await conn.beginTransaction();
+
+        for (const entry of entries) {
+            await conn.execute(entry.query, entry.params);
+        }
+
+        await conn.commit();
+        console.log(`Recovery completed for node: ${node}`);
+    } catch (error) {
+        await conn.rollback();
+        console.error(`Recovery failed for node: ${node}`, error);
+        throw error;
+    } finally {
+        releaseConnection(conn);
+    }
+}

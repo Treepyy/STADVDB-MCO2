@@ -22,7 +22,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 parseInt(game.release_day)
             ];
 
-            await executeWithLogging(relevantNodes, [query], [params], nodeStatus, res);
+            await executeWithLogging(relevantNodes, [query], [params], nodeStatus);
 
             res.status(200).json({ message: 'Game inserted successfully' });
         } catch (error) {
@@ -32,7 +32,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     } else if (req.method === 'PUT') {
         try {
             const { node } = req.body;
-            await executeStoredTransactions(node, req, res);
+            await executeStoredTransactions(node, req);
             res.status(200).json({ message: 'Stored transactions executed successfully' });
         } catch (error) {
             console.error('Error executing stored transactions:', error);
