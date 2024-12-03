@@ -119,10 +119,18 @@ async function simulateCase2(gameId: number, price: number) {
     async function transaction2() {
         const node = relevantNodes.includes('node1') ? 'node1' : 'node2'
         logs.push(`Transaction 2 started on central and ${node}`)
-        const conn = await getDbConnection(dbConfigs[node], 'READ COMMITTED')
+        let conn = await getDbConnection(dbConfigs[node], 'READ COMMITTED')
         try {
             await executeQuery(conn, "UPDATE games SET price = ? WHERE game_id = ?", [price, gameId])
-            logs.push(`Transaction 2 updated price to ${price} on central and ${node}`)
+            logs.push(`Transaction 2 updated price to ${price} on ${node}`)
+        } finally {
+            await conn.end()
+        }
+
+        conn = await getDbConnection(dbConfigs.central, 'READ COMMITTED')
+        try {
+            await executeQuery(conn, "UPDATE games SET price = ? WHERE game_id = ?", [price, gameId])
+            logs.push(`Transaction 2 updated price to ${price} on central`)
         } finally {
             await conn.end()
         }
