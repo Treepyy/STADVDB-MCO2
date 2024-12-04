@@ -19,7 +19,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             if (parsedNodeStatus.node1) {
                 const conn = await getConnection('node1')
                 try {
-                    await conn.execute(`SET TRANSACTION ISOLATION LEVEL SERIALIZABLE`);
+                    await conn.execute(`SET TRANSACTION ISOLATION LEVEL READ COMMITTED`);
                     const [rows] = await conn.execute(query, params)
                     if (Array.isArray(rows) && rows.length > 0) {
                         game = rows[0]
@@ -38,7 +38,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 if (parsedNodeStatus.node2) {
                     const centralConn = await getConnection('node2')
                     try {
-                        await centralConn.execute(`SET TRANSACTION ISOLATION LEVEL SERIALIZABLE`);
+                        await centralConn.execute(`SET TRANSACTION ISOLATION LEVEL READ COMMITTED`);
                         const [rows] = await centralConn.execute(query, params)
                         if (Array.isArray(rows) && rows.length > 0) {
                             game = rows[0]

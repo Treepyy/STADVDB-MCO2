@@ -30,9 +30,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             if (parsedNodeStatus.central) {
                 const centralConn = await getConnection('central')
                 try {
+                    await centralConn.execute(`SET TRANSACTION ISOLATION LEVEL READ COMMITTED`);
                     const [rows1] = await centralConn.execute(report1Query)
                     report1 = formatReport1(rows1)
 
+                    await centralConn.execute(`SET TRANSACTION ISOLATION LEVEL READ COMMITTED`);
                     const [rows2] = await centralConn.execute(report2Query)
                     report2 = formatReport2(rows2)
                 } catch (error) {
@@ -51,10 +53,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                         const conn = await getConnection(node)
                         try {
                             if (!report1) {
+                                await conn.execute(`SET TRANSACTION ISOLATION LEVEL READ COMMITTED`);
                                 const [rows1] = await conn.execute(report1Query)
                                 report1 = formatReport1(rows1)
                             }
                             if (!report2) {
+                                await conn.execute(`SET TRANSACTION ISOLATION LEVEL READ COMMITTED`);
                                 const [rows2] = await conn.execute(report2Query)
                                 report2 = formatReport2(rows2)
                             }
