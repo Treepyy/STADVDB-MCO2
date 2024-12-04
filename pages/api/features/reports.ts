@@ -8,17 +8,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             const parsedNodeStatus = JSON.parse(nodeStatus as string)
 
             const report1Query = `
-                SELECT name, mc_score
+                SELECT name, price
                 FROM games
-                WHERE mc_score IS NOT NULL
-                ORDER BY mc_score DESC
+                WHERE price IS NOT NULL
+                ORDER BY price DESC
                     LIMIT 10
             `
 
             const report2Query = `
-                SELECT release_year, AVG(price) as avg_price
+                SELECT release_year, AVG(mc_score) as avg_score
                 FROM games
-                WHERE price IS NOT NULL
+                WHERE mc_score IS NOT NULL AND mc_score > 0
                 GROUP BY release_year
                 ORDER BY release_year
             `
@@ -81,12 +81,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
 function formatReport1(rows: any[]) {
     return rows.map((row, index) =>
-        `${index + 1}. ${row.name} (Score: ${row.mc_score})`
+        `${index + 1}. ${row.name} (Price: ${row.price})`
     ).join('\n')
 }
 
 function formatReport2(rows: any[]) {
     return rows.map(row =>
-        `${row.release_year}: $${row.avg_price}`
+        `${row.release_year}: ${row.avg_score}`
     ).join('\n')
 }

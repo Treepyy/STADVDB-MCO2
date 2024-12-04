@@ -17,9 +17,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
             // Try node1 first
             if (parsedNodeStatus.node1) {
-                const centralConn = await getConnection('node1')
+                const conn = await getConnection('node1')
                 try {
-                    const [rows] = await centralConn.execute(query, params)
+                    await conn.execute(`SET TRANSACTION ISOLATION LEVEL SERIALIZABLE`);
+                    const [rows] = await conn.execute(query, params)
                     if (Array.isArray(rows) && rows.length > 0) {
                         game = rows[0]
                     }
@@ -27,16 +28,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                     console.error('Error querying central node:', error)
                     await recoverNode('central')
                 } finally {
-                    releaseConnection(centralConn)
+                    releaseConnection(conn)
                 }
             }
 
 
-            // If not found in central, try other nodes
+            // If not found, try other nodes
             if (!game) {
                 if (parsedNodeStatus.node2) {
                     const centralConn = await getConnection('node2')
                     try {
+                        await centralConn.execute(`SET TRANSACTION ISOLATION LEVEL SERIALIZABLE`);
                         const [rows] = await centralConn.execute(query, params)
                         if (Array.isArray(rows) && rows.length > 0) {
                             game = rows[0]

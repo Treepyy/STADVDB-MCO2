@@ -231,13 +231,13 @@ export default function FeaturesPage() {
                             <Button onClick={generateReports}>Generate Reports</Button>
                             {report1 && (
                                 <div className="mt-4">
-                                    <h3 className="font-semibold">Report 1: Top 10 Games by Metacritic Score</h3>
+                                    <h3 className="font-semibold">Report 1: Top 10 Most Expensive Games (by Price)</h3>
                                     <pre className="bg-gray-100 p-2 rounded mt-2">{report1}</pre>
                                 </div>
                             )}
                             {report2 && (
                                 <div className="mt-4">
-                                    <h3 className="font-semibold">Report 2: Average Price by Release Year</h3>
+                                    <h3 className="font-semibold">Report 2: Metacritic Score by Release Year</h3>
                                     <pre className="bg-gray-100 p-2 rounded mt-2">{report2}</pre>
                                 </div>
                             )}

@@ -89,7 +89,7 @@ export async function executeWithLogging(nodes: string[], queries: string[], par
                 try {
                     await conn.execute(`SET TRANSACTION ISOLATION LEVEL ${isolationLevel}`);
                     await conn.beginTransaction();
-                    console.log(`ISOLATION LEVEL: ${isolationLevel}`);
+                    console.log(`ISOLATION LEVEL: ${isolationLevel} in ${node}`);
                     const [result] = await conn.execute(queries[i], params[i]);
                     await conn.commit();
                     results.push(result);
