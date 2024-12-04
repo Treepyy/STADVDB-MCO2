@@ -23,6 +23,7 @@ export default function FeaturesPage() {
     const [updateGame, setUpdateGame] = useState({
         game_id: '',
         price: '',
+        delay: ''
     })
     const [searchId, setSearchId] = useState('')
     const [searchResult, setSearchResult] = useState(null)
@@ -174,7 +175,7 @@ export default function FeaturesPage() {
                     <Card>
                         <CardHeader>
                             <CardTitle>Update Game</CardTitle>
-                            <CardDescription>Update an existing game record</CardDescription>
+                            <CardDescription>Update an existing game record (delay in seconds for testing concurrency)</CardDescription>
                         </CardHeader>
                         <CardContent>
                             <div className="grid grid-cols-2 gap-4">

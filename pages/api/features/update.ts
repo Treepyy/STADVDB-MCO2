@@ -20,7 +20,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 parseInt(game.game_id)
             ]
 
-            await executeWithLogging(relevantNodes, [query], [params], nodeStatus, "SERIALIZABLE")
+            await executeWithLogging(relevantNodes, [query], [params], nodeStatus, "SERIALIZABLE", parseInt(game.delay))
 
             // Set the cookie after executing the query
             const cookieValue = getLogForCookie();

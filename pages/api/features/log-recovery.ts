@@ -77,7 +77,9 @@ async function releaseConnection(connection: mysql.PoolConnection) {
     connection.release();
 }
 
-export async function executeWithLogging(nodes: string[], queries: string[], params: any[][], nodeStatus: any, isolationLevel: string = 'READ COMMITTED') {
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+export async function executeWithLogging(nodes: string[], queries: string[], params: any[][], nodeStatus: any, isolationLevel: string = 'READ COMMITTED', delay: number = 0) {
     const results = [];
     for (let i = 0; i < queries.length; i++) {
         const entry: LogEntry = { nodes, query: queries[i], params: params[i] };
@@ -90,8 +92,14 @@ export async function executeWithLogging(nodes: string[], queries: string[], par
                     await conn.execute(`SET TRANSACTION ISOLATION LEVEL ${isolationLevel}`);
                     await conn.beginTransaction();
                     console.log(`ISOLATION LEVEL: ${isolationLevel} in ${node}`);
+
+                    // optional delay
                     const [result] = await conn.execute(queries[i], params[i]);
+                    console.log(`Sleeping for ${delay} seconds...`)
+                    await sleep(delay * 1000);
+
                     await conn.commit();
+                    console.log(`Transaction committed!`)
                     results.push(result);
                 } catch (error) {
                     await conn.rollback();
