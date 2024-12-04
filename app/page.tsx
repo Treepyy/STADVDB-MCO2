@@ -237,7 +237,7 @@ export default function FeaturesPage() {
                             )}
                             {report2 && (
                                 <div className="mt-4">
-                                    <h3 className="font-semibold">Report 2: Metacritic Score by Release Year</h3>
+                                    <h3 className="font-semibold">Report 2: Average Metacritic Score by Release Year</h3>
                                     <pre className="bg-gray-100 p-2 rounded mt-2">{report2}</pre>
                                 </div>
                             )}
