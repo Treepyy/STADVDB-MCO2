@@ -13,14 +13,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             const query = `
                 UPDATE games
                 SET price = ?
-                WHERE game_id = ?
+                WHERE game_id = ? ;
             `
             const params = [
                 parseFloat(game.price),
                 parseInt(game.game_id)
             ]
 
-            await executeWithLogging(relevantNodes, [query], [params], nodeStatus)
+            await executeWithLogging(relevantNodes, [query], [params], nodeStatus, "SERIALIZABLE")
 
             // Set the cookie after executing the query
             const cookieValue = getLogForCookie();

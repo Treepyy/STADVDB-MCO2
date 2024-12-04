@@ -23,7 +23,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 parseInt(game.release_day)
             ];
 
-            await executeWithLogging(relevantNodes, [query], [params], nodeStatus);
+            await executeWithLogging(relevantNodes, [query], [params], nodeStatus, "SERIALIZABLE");
 
             res.status(200).json({ message: 'Game inserted successfully' });
         } catch (error) {
